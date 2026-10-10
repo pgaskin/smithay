@@ -18,6 +18,10 @@
 //! compositor is responsible for choosing if/how to reconcile the modifier
 //! state on virtual keyboard removal (e.g., by tracking the bits set by it).
 //!
+//! Some clients (e.g., IMEs like fcitx) grab the keyboard and forward unhandled
+//! keys through another virtual keyboard. Those must not be passed back to the
+//! grab, otherwise it may loop infinitely.
+//!
 //! Since the keycodes belong to the client's keymap, not the seat, it must be
 //! activated (see [`VirtualKeyboardDevice::keymap`]) before handling them. A
 //! client may send the `no_keymap` format to use the existing seat keymap, in
@@ -66,6 +70,7 @@ use wayland_server::{
 use xkbcommon::xkb;
 
 use crate::backend::input::{InputEvent, InputTime, KeyState};
+use crate::input::keyboard::KeyboardSource;
 use crate::wayland::{Dispatch2, GlobalData, GlobalDispatch2};
 
 const MANAGER_VERSION: u32 = 1;
@@ -170,6 +175,7 @@ where
                             has_keymap: AtomicBool::new(false),
                             keymap: Mutex::new(None),
                             pressed_keys: Mutex::new(Vec::new()),
+                            source: KeyboardSource::new_auxiliary(),
                         }),
                     },
                 );
@@ -193,6 +199,7 @@ struct VirtualKeyboardData {
     has_keymap: AtomicBool,
     keymap: Mutex<Option<Arc<str>>>,
     pressed_keys: Mutex<Vec<u32>>,
+    source: KeyboardSource,
 }
 
 impl VirtualKeyboardUserData {
